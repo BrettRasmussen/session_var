@@ -1,0 +1,4 @@
+= Session Var
+
+Radiant extension for rendering and caching multiple variations of the same page
+depending on session variables.
