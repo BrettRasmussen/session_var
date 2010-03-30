@@ -42,9 +42,45 @@ module SessionVarPageExtensions
   def sv_cache_key
     return @sv_cache_key if @sv_cache_key
     sv_cache_key = self.url
-    session_vars = set_session_vars(@request) # used by sv_cache_key
+    session_vars = handle_sv_pairs
+    session_vars = session_vars | set_session_vars(@request)
     session_vars.each {|var| sv_cache_key << ";#{var.to_s}=#{@request.session[var].to_s}"}
     @sv_cache_key = Digest::MD5.hexdigest(sv_cache_key)
+  end
+
+  # Sets any session variables that come in as sv[key]=val pairs in the http
+  # params.  If Radiant::Config["session_var.valid_http_keys"] is a non-empty
+  # list of keys, ignores any keys not found therein.  Returns the list of valid
+  # keys.
+  def handle_sv_pairs
+    sv_pairs = params[:sv]
+    if !valid_http_keys.empty?
+      sv_pairs.keys.each {|k| sv_pairs.delete(k) if !valid_http_keys.include?(k)}
+    end
+    sv_pairs.each do |k,v|
+      next if v !~ http_value_regex
+      @request.session[k] = v
+    end
+
+    # return all valid keys whether used by this method or not
+    sv_pairs.keys | valid_http_keys
+  end
+
+  # Returns an array of the valid_http_keys list from Radiant::Config.
+  def valid_http_keys
+    @valid_http_keys ||= Radiant::Config['session_var.valid_http_keys'].to_s.split(/,\s*/)
+  end
+
+  # Returns a regular expression to match against any http sv[] values.
+  # Defaults to just word characters but can be overridden in
+  # Radiant::Config['http_value_regex'].
+  def http_value_regex
+    return @http_value_regex if @http_value_regex
+    @http_value_regex = if !Radiant::Config['session_var.valid_http_regex'].to_s.empty?
+      eval(Radiant::Config['session_var.valid_http_regex'])
+    else
+      /^\w.$/
+    end
   end
 
   # If there is a valid cache entry with a valid matching SvCacheMeta entry,

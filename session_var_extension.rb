@@ -11,7 +11,8 @@ class SessionVarExtension < Radiant::Extension
   def activate
     Page.send :include, SessionVarPageExtensions
     Page.send :include, SessionVarTags
-    $sv_cache = SessionVarMemcache.new if !$sv_cache
+    cache_class = Radiant::Config['session_var.cache_class'] || SessionVarMemcache
+    $sv_cache = cache_class.new
   end
   
   def deactivate
