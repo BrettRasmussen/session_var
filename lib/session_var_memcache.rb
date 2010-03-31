@@ -1,7 +1,6 @@
-require 'memcached'
-
 class SessionVarMemcache
   def initialize(host="localhost", port=11211)
+    require 'memcached'
     @memcache = Memcached.new("#{host}:#{port}")
   end
 
