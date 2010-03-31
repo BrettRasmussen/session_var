@@ -53,7 +53,7 @@ module SessionVarPageExtensions
   # list of keys, ignores any keys not found therein.  Returns the list of valid
   # keys.
   def handle_sv_pairs
-    sv_pairs = params[:sv]
+    sv_pairs = params[:sv] || {}
     if !valid_http_keys.empty?
       sv_pairs.keys.each {|k| sv_pairs.delete(k) if !valid_http_keys.include?(k)}
     end
@@ -79,7 +79,7 @@ module SessionVarPageExtensions
     @http_value_regex = if !Radiant::Config['session_var.valid_http_regex'].to_s.empty?
       eval(Radiant::Config['session_var.valid_http_regex'])
     else
-      /^\w.$/
+      /^\w*$/
     end
   end
 
