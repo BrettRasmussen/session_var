@@ -41,7 +41,7 @@ module SessionVarPageExtensions
   #   "95a2325f2882a6180356241535c940c1"
   def sv_cache_key
     return @sv_cache_key if @sv_cache_key
-    sv_cache_key = self.url
+    sv_cache_key = @request.path
     session_vars = handle_sv_http_data
     session_vars = session_vars | set_session_vars(@request)
     session_vars.each {|var| sv_cache_key << ";#{var.to_s}=#{@request.session[var].to_s}"}
