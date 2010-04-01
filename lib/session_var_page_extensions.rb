@@ -74,7 +74,7 @@ module SessionVarPageExtensions
   def valid_sv_http_data
     return @valid_sv_http_data if @valid_sv_http_data
     @valid_sv_http_data = {}
-    Radiant::Config['session_var.valid_http_data'].scan(/(\w+)(\[[^\]]*\])?,?\s*/) do |match|
+    Radiant::Config['session_var.valid_http_data'].to_s.scan(/(\w+)(\[[^\]]*\])?,?\s*/) do |match|
       values = match[1].to_s.gsub(/(^\[|\]$)/, "").split('|')
       @valid_sv_http_data[match[0]] = values
     end
