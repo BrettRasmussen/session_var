@@ -93,6 +93,16 @@ module SessionVarTags
     end
   end
 
+  tag "session_var:timestamp" do |tag|
+    "<SV_TIMESTAMP>"
+  end
+
+  tag "session_vars" do |tag|
+    output = "----------<br/>"
+    @request.session.each {|k,v| output += "#{k}: #{v}<br/>"}
+    output += "----------<br/>"
+  end
+
 
   private
 

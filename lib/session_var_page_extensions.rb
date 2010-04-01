@@ -23,8 +23,8 @@ module SessionVarPageExtensions
       @response.status = response_code
     else
       process_without_session_var_caching(request, response)
-      @response.body.gsub!(/<<SV_TIMESTAMP>>/, Time.now.to_s) # just for testing purposes
-      cache_current
+      @response.body.gsub!(/<SV_TIMESTAMP>/, Time.now.to_s) # just for testing purposes
+      sv_cache_current
     end
 
     @response.status
@@ -42,42 +42,52 @@ module SessionVarPageExtensions
   def sv_cache_key
     return @sv_cache_key if @sv_cache_key
     sv_cache_key = self.url
-    session_vars = handle_sv_pairs
+    session_vars = handle_sv_http_data
     session_vars = session_vars | set_session_vars(@request)
     session_vars.each {|var| sv_cache_key << ";#{var.to_s}=#{@request.session[var].to_s}"}
     @sv_cache_key = Digest::MD5.hexdigest(sv_cache_key)
   end
 
   # Sets any session variables that come in as sv[key]=val pairs in the http
-  # params.  If Radiant::Config["session_var.valid_http_keys"] is a non-empty
+  # params.  If Radiant::Config["session_var.valid_http_data"] is a non-empty
   # list of keys, ignores any keys not found therein.  Returns the list of valid
   # keys.
-  def handle_sv_pairs
+  def handle_sv_http_data
     sv_pairs = params[:sv] || {}
-    if !valid_http_keys.empty?
-      sv_pairs.keys.each {|k| sv_pairs.delete(k) if !valid_http_keys.include?(k)}
+    if !valid_sv_http_data.empty?
+      sv_pairs.keys.each {|k| sv_pairs.delete(k) if !valid_sv_http_data.has_key?(k)}
     end
     sv_pairs.each do |k,v|
-      next if v !~ http_value_regex
+      if valid_sv_http_data.has_key?(k) && !valid_sv_http_data[k].empty?
+        next if !valid_sv_http_data[k].include?(v)
+      else
+        next if v !~ sv_http_value_regex
+      end
       @request.session[k] = v
     end
 
     # return all valid keys whether used by this method or not
-    sv_pairs.keys | valid_http_keys
+    sv_pairs.keys | valid_sv_http_data.keys
   end
 
   # Returns an array of the valid_http_keys list from Radiant::Config.
-  def valid_http_keys
-    @valid_http_keys ||= Radiant::Config['session_var.valid_http_keys'].to_s.split(/,\s*/)
+  def valid_sv_http_data
+    return @valid_sv_http_data if @valid_sv_http_data
+    @valid_sv_http_data = {}
+    Radiant::Config['session_var.valid_http_data'].scan(/(\w+)(\[[^\]]*\])?,?\s*/) do |match|
+      values = match[1].to_s.gsub(/(^\[|\]$)/, "").split('|')
+      @valid_sv_http_data[match[0]] = values
+    end
+    @valid_sv_http_data
   end
 
   # Returns a regular expression to match against any http sv[] values.
   # Defaults to just word characters but can be overridden in
-  # Radiant::Config['http_value_regex'].
-  def http_value_regex
-    return @http_value_regex if @http_value_regex
-    @http_value_regex = if !Radiant::Config['session_var.valid_http_regex'].to_s.empty?
-      eval(Radiant::Config['session_var.valid_http_regex'])
+  # Radiant::Config['session_var.http_value_regex'].
+  def sv_http_value_regex
+    return @sv_http_value_regex if @sv_http_value_regex
+    @sv_http_value_regex = if !Radiant::Config['session_var.http_value_regex'].to_s.empty?
+      eval(Radiant::Config['session_var.http_value_regex'])
     else
       /^\w*$/
     end
@@ -101,7 +111,7 @@ module SessionVarPageExtensions
 
   # Adds the current page with the current session variables to the cache,
   # including setting up a SvCacheMeta entry.
-  def cache_current
+  def sv_cache_current
     $sv_cache.set(sv_cache_key, @response.body)
     exp_minutes = (defined? SESSION_VAR_CACHE_EXPIRATION_MINUTES) ? SESSION_VAR_CACHE_EXPIRATION_MINUTES : 5
     SvCacheMeta.create(
