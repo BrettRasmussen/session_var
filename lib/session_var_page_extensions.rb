@@ -28,23 +28,30 @@ module SessionVarPageExtensions
     end
 
     @response.status
+  rescue => e
+    logger.error
+    logger.error "Unable to use page cache for page '#{request.path}', so doing full render. Details follow:"
+    logger.error "#{e.class}: #{e}"
+    logger.error
+
+    process_without_session_var_caching(request, response)
   end
 
   private
 
-  # Returns the sv_cache_key, an MD5 hash (hexdigest) of a string comprised of
-  # the url and key=value pairs from the session variables reported by
-  # set_session_vars, all semicolon-delimited.  For example, a given set of
-  # session variables might cause the following string to be created internally:
+  # Returns the sv_cache_key, a string comprised of the url and key=value pairs
+  # from the session variables reported by set_session_vars, all
+  # semicolon-delimited.  For example, a given set of session variables might
+  # cause the following string to be created internally:
   #   "/products;language=en_gb;theme=BlueGreen"
-  # In that case, this method would return the MD5 hash of that string:
-  #   "95a2325f2882a6180356241535c940c1"
+  # Note that whatever cache class you're using may well hash this string
+  # before storing it. If not, it's a good idea do so yourself.
   def sv_cache_key
     return @sv_cache_key if @sv_cache_key
     sv_cache_key = self.url
     session_vars = set_session_vars(@request) # used by sv_cache_key
     session_vars.each {|var| sv_cache_key << ";#{var.to_s}=#{@request.session[var].to_s}"}
-    @sv_cache_key = Digest::MD5.hexdigest(sv_cache_key)
+    @sv_cache_key = sv_cache_key
   end
 
   # If there is a valid cache entry with a valid matching SvCacheMeta entry,
@@ -52,7 +59,7 @@ module SessionVarPageExtensions
   def cached_body
     return @cached_body if @cached_body
     cached_body = $sv_cache.get(sv_cache_key)
-    meta_data = SvCacheMeta.find_by_sv_cache_key(sv_cache_key)
+    meta_data = SvCacheMeta.find(:first, :conditions => ["sv_cache_key = ?", sv_cache_key])
     if cached_body && meta_data && meta_data.expires_at > Time.now
       @cached_body = cached_body
       return cached_body

@@ -1,23 +1,53 @@
 require 'memcached'
 
 class SessionVarMemcache
-  def initialize(host="localhost", port=11211)
-    @memcache = Memcached.new("#{host}:#{port}")
+  def initialize(*args)
+    @memcache = Memcached.new(*args)
   end
 
   def get(key)
-    @memcache.get(key)
-  rescue Memcached::NotFound
-    nil
+    first_attempt = true
+    begin
+      @memcache.get(key)
+    rescue Memcached::NotFound
+      nil
+    rescue => e
+      if first_attempt
+        first_attempt = false
+        @memcache.reset
+        retry
+      end
+      raise e
+    end
   end
 
   def set(key, value)
-    @memcache.set(key, value)
+    first_attempt = true
+    begin
+      @memcache.set(key, value)
+    rescue => e
+      if first_attempt
+        first_attempt = false
+        @memcache.reset
+        retry
+      end
+      raise e
+    end
   end
 
   def delete(key)
-    @memcache.delete(key)
-  rescue Memcached::NotFound
-    nil
+    first_attempt = true
+    begin
+      @memcache.delete(key)
+    rescue Memcached::NotFound
+      nil
+    rescue => e
+      if first_attempt
+        first_attempt = false
+        @memcache.reset
+        retry
+      end
+      raise e
+    end
   end
 end
