@@ -1,7 +1,6 @@
-require 'memcached'
-
 class SessionVarMemcache
   def initialize(*args)
+    require 'memcached'
     @memcache = Memcached.new(*args)
   end
 
